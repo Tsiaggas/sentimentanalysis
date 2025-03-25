@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Container, 
   Box, 
@@ -7,17 +7,20 @@ import {
   Button, 
   Paper,
   CircularProgress,
-  Grid
+  Grid,
+  Alert,
+  Snackbar
 } from '@mui/material';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { Line } from 'react-chartjs-2';
+import { Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   Title,
   Tooltip,
   Legend
@@ -29,6 +32,7 @@ ChartJS.register(
   LinearScale,
   PointElement,
   LineElement,
+  BarElement,
   Title,
   Tooltip,
   Legend
@@ -47,15 +51,61 @@ const theme = createTheme({
   },
 });
 
+// Define interface for the API response
+interface SentimentResult {
+  text: string;
+  overall_sentiment: string;
+  sentiment: {
+    vader: number;
+    textblob: number;
+    bert: number;
+  };
+  emotions: {
+    joy: number;
+    trust: number;
+    pleasure: number;
+    anxiety: number;
+    anger: number;
+    sadness: number;
+    [key: string]: number;
+  };
+  confidence: number;
+}
+
 function App() {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<SentimentResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showError, setShowError] = useState(false);
+  const [backendAlive, setBackendAlive] = useState(false);
+
+  // Check if backend is alive on component mount
+  useEffect(() => {
+    const checkBackendStatus = async () => {
+      try {
+        const response = await fetch('http://127.0.0.1:5000/api/health');
+        if (response.ok) {
+          setBackendAlive(true);
+        } else {
+          setBackendAlive(false);
+          setError('Το backend API δεν είναι διαθέσιμο');
+          setShowError(true);
+        }
+      } catch (err) {
+        setBackendAlive(false);
+        setError('Δεν είναι δυνατή η σύνδεση με το backend API');
+        setShowError(true);
+      }
+    };
+    
+    checkBackendStatus();
+  }, []);
 
   const analyzeSentiment = async () => {
     if (!text.trim()) {
       setError('Παρακαλώ εισάγετε κείμενο για ανάλυση');
+      setShowError(true);
       return;
     }
 
@@ -63,6 +113,9 @@ function App() {
     setError(null);
 
     try {
+      console.log('Sending request to:', 'http://127.0.0.1:5000/api/analyze');
+      console.log('With payload:', { text });
+      
       const response = await fetch('http://127.0.0.1:5000/api/analyze', {
         method: 'POST',
         headers: {
@@ -71,14 +124,20 @@ function App() {
         body: JSON.stringify({ text }),
       });
 
+      console.log('Response status:', response.status);
+
       if (!response.ok) {
-        throw new Error('Σφάλμα στην ανάλυση');
+        throw new Error(`Σφάλμα HTTP: ${response.status}`);
       }
 
-      const data = await response.json();
+      const data: SentimentResult = await response.json();
+      console.log('Response data:', data);
+      
       setResult(data);
     } catch (err) {
+      console.error('Error during analysis:', err);
       setError(err instanceof Error ? err.message : 'Σφάλμα στην ανάλυση');
+      setShowError(true);
     } finally {
       setLoading(false);
     }
@@ -87,14 +146,32 @@ function App() {
   const renderEmotionChart = () => {
     if (!result?.emotions) return null;
 
+    const emotionLabels = Object.keys(result.emotions);
+    const emotionValues = emotionLabels.map(label => result.emotions[label]);
+
     const data = {
-      labels: Object.keys(result.emotions),
+      labels: emotionLabels,
       datasets: [
         {
           label: 'Επίπεδο Συναισθήματος',
-          data: Object.values(result.emotions),
-          borderColor: 'rgb(75, 192, 192)',
-          tension: 0.1,
+          data: emotionValues,
+          backgroundColor: [
+            'rgba(255, 99, 132, 0.7)',
+            'rgba(54, 162, 235, 0.7)',
+            'rgba(255, 206, 86, 0.7)',
+            'rgba(75, 192, 192, 0.7)',
+            'rgba(153, 102, 255, 0.7)',
+            'rgba(255, 159, 64, 0.7)'
+          ],
+          borderColor: [
+            'rgba(255, 99, 132, 1)',
+            'rgba(54, 162, 235, 1)',
+            'rgba(255, 206, 86, 1)',
+            'rgba(75, 192, 192, 1)',
+            'rgba(153, 102, 255, 1)',
+            'rgba(255, 159, 64, 1)'
+          ],
+          borderWidth: 1
         },
       ],
     };
@@ -118,7 +195,11 @@ function App() {
       },
     };
 
-    return <Line data={data} options={options} />;
+    return <Bar data={data} options={options} />;
+  };
+
+  const handleCloseError = () => {
+    setShowError(false);
   };
 
   return (
@@ -129,6 +210,12 @@ function App() {
           <Typography variant="h3" component="h1" gutterBottom align="center">
             Ανάλυση Συναισθημάτων
           </Typography>
+
+          {!backendAlive && (
+            <Alert severity="error" sx={{ mb: 3 }}>
+              Το backend API δεν είναι διαθέσιμο. Βεβαιωθείτε ότι ο server τρέχει στο http://127.0.0.1:5000
+            </Alert>
+          )}
 
           <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
             <Grid container spacing={2}>
@@ -141,8 +228,8 @@ function App() {
                   label="Εισάγετε το κείμενο για ανάλυση"
                   value={text}
                   onChange={(e) => setText(e.target.value)}
-                  error={!!error}
-                  helperText={error}
+                  error={!!error && !showError}
+                  helperText={error && !showError ? error : ''}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -150,7 +237,7 @@ function App() {
                   fullWidth
                   variant="contained"
                   onClick={analyzeSentiment}
-                  disabled={loading}
+                  disabled={loading || !backendAlive}
                 >
                   {loading ? <CircularProgress size={24} /> : 'Ανάλυση'}
                 </Button>
@@ -165,11 +252,20 @@ function App() {
               </Typography>
               
               <Typography variant="body1" gutterBottom>
-                Συνολικό Συναίσθημα: {result.overall_sentiment}
+                <strong>Κείμενο:</strong> {result.text}
               </Typography>
               
               <Typography variant="body1" gutterBottom>
-                Εμπιστοσύνη: {(result.confidence * 100).toFixed(2)}%
+                <strong>Συνολικό Συναίσθημα:</strong> {result.overall_sentiment === 'positive' ? 'Θετικό' : 
+                                         result.overall_sentiment === 'negative' ? 'Αρνητικό' : 'Ουδέτερο'}
+              </Typography>
+              
+              <Typography variant="body1" gutterBottom>
+                <strong>Εμπιστοσύνη:</strong> {(result.confidence * 100).toFixed(2)}%
+              </Typography>
+              
+              <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+                Επιμέρους Συναισθήματα
               </Typography>
 
               <Box sx={{ mt: 3 }}>
@@ -179,6 +275,12 @@ function App() {
           )}
         </Box>
       </Container>
+
+      <Snackbar open={showError} autoHideDuration={6000} onClose={handleCloseError}>
+        <Alert onClose={handleCloseError} severity="error">
+          {error}
+        </Alert>
+      </Snackbar>
     </ThemeProvider>
   );
 }

@@ -1,93 +1,99 @@
+import os
+import re
+import json
+import logging
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
-import os
-import sys
-import traceback
+from sentiment_analyzer import SentimentAnalyzer
 
-# Add the current directory to path for imports
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Setup logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("app.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
-# Import our sentiment analyzer
-try:
-    from sentiment_analyzer import SentimentAnalyzer
-except ImportError as e:
-    print(f"Error importing SentimentAnalyzer: {e}")
-    traceback.print_exc()
-    # Create a minimal analyzer to not crash the app
-    class SentimentAnalyzer:
-        def analyze_sentiment(self, text):
-            return {
-                'text': text,
-                'overall_sentiment': 'neutral',
-                'sentiment': {'vader': 0, 'textblob': 0, 'bert': 0},
-                'emotions': {
-                    'joy': 0.3,
-                    'trust': 0.4,
-                    'pleasure': 0.2,
-                    'anxiety': 0.1,
-                    'anger': 0.1,
-                    'sadness': 0.1
-                },
-                'confidence': 0.5
-            }
-        def batch_analyze(self, texts):
-            return [self.analyze_sentiment(text) for text in texts]
-
-# Load environment variables
+# Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
-# Basic configuration
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev')
-app.config['MONGODB_URI'] = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/sentiment_analysis')
-
 # Initialize sentiment analyzer
 analyzer = SentimentAnalyzer()
+logger.info("Sentiment analyzer initialized")
 
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    return jsonify({"status": "healthy"}), 200
+@app.route('/')
+def home():
+    logger.info("Home route accessed")
+    return jsonify({
+        'status': 'API is running',
+        'message': 'Welcome to the Sentiment Analysis API',
+        'endpoints': {
+            '/api/health': 'Health check endpoint',
+            '/api/analyze': 'Analyze sentiment for a single text (POST)',
+            '/api/batch-analyze': 'Analyze sentiment for multiple texts (POST)'
+        }
+    })
+    
+@app.route('/api/health')
+def health():
+    logger.info("Health check endpoint accessed")
+    return jsonify({
+        'status': 'ok',
+        'message': 'API is healthy'
+    })
 
 @app.route('/api/analyze', methods=['POST'])
-def analyze_sentiment():
+def analyze():
+    data = request.get_json()
+    
+    if not data or 'text' not in data:
+        logger.error("Invalid request: missing 'text' field")
+        return jsonify({'error': 'Missing text field'}), 400
+        
+    text = data['text']
+    logger.info(f"Analyzing text: {text[:50]}...")
+    
     try:
-        data = request.get_json()
-        text = data.get('text')
-        
-        if not text:
-            return jsonify({"error": "No text provided"}), 400
-            
-        # Use our sentiment analyzer
         result = analyzer.analyze_sentiment(text)
-        
-        return jsonify(result), 200
-        
+        logger.info(f"Analysis complete. Sentiment keys: {list(result['sentiment'].keys())}")
+        return jsonify(result)
     except Exception as e:
-        print(f"Error in analyze_sentiment: {e}")
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
-
+        logger.exception(f"Error during analysis: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+        
 @app.route('/api/batch-analyze', methods=['POST'])
 def batch_analyze():
+    data = request.get_json()
+    
+    if not data or 'texts' not in data:
+        logger.error("Invalid request: missing 'texts' field")
+        return jsonify({'error': 'Missing texts field'}), 400
+        
+    texts = data['texts']
+    if not isinstance(texts, list):
+        logger.error("Invalid request: 'texts' field is not a list")
+        return jsonify({'error': 'Texts field must be a list'}), 400
+        
+    logger.info(f"Batch analyzing {len(texts)} texts")
+    
     try:
-        data = request.get_json()
-        texts = data.get('texts', [])
-        
-        if not texts:
-            return jsonify({"error": "No texts provided"}), 400
-            
-        # Use our batch analyzer
         results = analyzer.batch_analyze(texts)
-            
-        return jsonify({"results": results}), 200
-        
+        return jsonify(results)
     except Exception as e:
-        print(f"Error in batch_analyze: {e}")
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        logger.exception(f"Error during batch analysis: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000) 
+    # Get port from environment variable or use 5000 as default
+    port = int(os.environ.get('PORT', 5000))
+    # Use 0.0.0.0 to make the server publicly available
+    debug = os.environ.get("DEBUG", "False").lower() in ('true', '1', 't')
+    logger.info(f"Starting app on port {port}, debug={debug}")
+    app.run(host='0.0.0.0', port=port, debug=debug) 

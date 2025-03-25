@@ -1,82 +1,99 @@
-# Sentiment Analysis Web Application
+# Εφαρμογή Ανάλυσης Συναισθημάτων (Sentiment Analysis)
 
-Μια πλήρης εφαρμογή ανάλυσης συναισθημάτων για κριτικές πελατών, χρησιμοποιώντας τεχνικές NLP και μηχανικής μάθησης.
+Μια εφαρμογή ανάλυσης συναισθημάτων που υποστηρίζει Αγγλικά και Ελληνικά κείμενα. Η εφαρμογή χρησιμοποιεί πολλαπλά μοντέλα για να παρέχει ακριβή ανάλυση συναισθημάτων και ταυτόχρονα αναγνωρίζει συναισθήματα από το κείμενο.
 
 ## Χαρακτηριστικά
 
-- Ανάλυση συναισθημάτων με πολλαπλά μοντέλα (VADER, BERT, TextBlob)
-- Ανίχνευση σαρκασμού και ειρωνείας
-- Πολυδιάστατη ανάλυση συναισθημάτων
-- RESTful API με Flask
-- React.js frontend με Material-UI
-- Οπτικοποίηση δεδομένων με Chart.js
-- Αυτόματη δημιουργία αναφορών
-- Υποστήριξη πολλαπλών γλωσσών
-
-## Προαπαιτούμενα
-
-- Python 3.9+
-- Node.js 16+
-- MongoDB (προαιρετικό)
+- **Πολλαπλά μοντέλα ανάλυσης**: VADER και BERT για Αγγλικά, Lexicon και Multilingual BERT για Ελληνικά
+- **Αυτόματη αναγνώριση γλώσσας**: Αυτόματος εντοπισμός της γλώσσας του κειμένου
+- **Ανάλυση συναισθημάτων**: Εντοπισμός θετικού, αρνητικού ή ουδέτερου συναισθήματος
+- **Ανάλυση συγκεκριμένων συναισθημάτων**: Αναγνώριση χαράς, εμπιστοσύνης, άγχους, θυμού και λύπης
+- **RESTful API**: Εύκολη ενσωμάτωση με άλλες εφαρμογές
+- **Σύγχρονο UI**: Καθαρή και διαισθητική διεπαφή χρήστη
 
 ## Εγκατάσταση
 
+### Προαπαιτούμενα
+
+- Python 3.11+
+- Node.js 14+
+- NPM ή Yarn
+
+### Βήματα Εγκατάστασης
+
+1. Κλωνοποιήστε το repository:
+   ```
+   git clone https://github.com/username/sentiment-analysis.git
+   cd sentiment-analysis
+   ```
+
+2. Εγκαταστήστε τις εξαρτήσεις του backend:
+   ```
+   pip install -r requirements.txt
+   python -m spacy download el_core_news_sm
+   ```
+
+3. Εγκαταστήστε τις εξαρτήσεις του frontend:
+   ```
+   cd frontend
+   npm install
+   ```
+
+## Εκτέλεση της Εφαρμογής
+
+1. Εκκινήστε το backend:
+   ```
+   cd backend
+   python app.py
+   ```
+   Το API θα είναι διαθέσιμο στη διεύθυνση: http://127.0.0.1:5000
+
+2. Εκκινήστε το frontend (σε άλλο τερματικό):
+   ```
+   cd frontend
+   npm start
+   ```
+   Η εφαρμογή θα ανοίξει αυτόματα στον browser: http://localhost:3000
+
+## API Endpoints
+
+- **POST /api/analyze**: Ανάλυση ενός κειμένου
+  - Body: `{"text": "Το κείμενο προς ανάλυση"}`
+  - Response: Αποτελέσματα ανάλυσης συναισθημάτων
+
+- **POST /api/batch-analyze**: Ανάλυση πολλαπλών κειμένων
+  - Body: `{"texts": ["Κείμενο 1", "Κείμενο 2", ...]}`
+  - Response: Λίστα αποτελεσμάτων ανάλυσης συναισθημάτων
+
+## Deployment
+
+Η εφαρμογή είναι έτοιμη για deployment σε πλατφόρμες όπως:
+
+- Heroku
+- Vercel
+- Netlify
+- Render
+- Railway
+
+## Τεχνολογίες που Χρησιμοποιούνται
+
 ### Backend
-
-1. Δημιουργήστε ένα virtual environment:
-```bash
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-venv\Scripts\activate     # Windows
-```
-
-2. Εγκαταστήστε τις εξαρτήσεις:
-```bash
-pip install -r requirements.txt
-```
-
-3. Εκκινήστε τον server:
-```bash
-python backend/app.py
-```
+- Flask
+- NLTK (VADER)
+- Hugging Face Transformers (BERT)
+- spaCy (για επεξεργασία ελληνικών κειμένων)
+- LangDetect
 
 ### Frontend
+- React
+- Material UI
+- Chart.js
+- Axios
 
-1. Εγκαταστήστε τις εξαρτήσεις:
-```bash
-cd frontend
-npm install
-```
+## Συνεισφορά
 
-2. Εκκινήστε την εφαρμογή:
-```bash
-npm start
-```
+Οι συνεισφορές είναι ευπρόσδεκτες! Παρακαλώ δημιουργήστε ένα issue ή ένα pull request.
 
-## Χρήση
+## Άδεια Χρήσης
 
-1. Ανοίξτε τον browser στο `http://localhost:3000`
-2. Εισάγετε κείμενο για ανάλυση
-3. Δείτε τα αποτελέσματα και τα γραφήματα
-4. Δημιουργήστε αναφορές
-
-## Ανάπτυξη
-
-- Backend: `http://localhost:5000`
-- Frontend: `http://localhost:3000`
-
-## Δοκιμές
-
-```bash
-# Backend tests
-pytest
-
-# Frontend tests
-cd frontend
-npm test
-```
-
-## Άδεια
-
-MIT License 
->>>>>>> b89d53d (initial project)
+MIT License
